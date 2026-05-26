@@ -19,6 +19,7 @@ model User {
 
   transaksis          Transaksi[]
   transaksiPenjualans TransaksiPenjualan[]
+  auditLogs AuditLog[]
 
   @@map("user")
 }
@@ -113,4 +114,16 @@ model BarangKeluar {
   customer Customer @relation(fields: [customer_id], references: [id])
 
   @@map("barang_keluar")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
 }

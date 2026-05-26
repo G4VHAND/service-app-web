@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { loginLimiter } from "@/lib/rate-limit";
 
 export const authOptions = {
   providers: [
@@ -13,6 +14,12 @@ export const authOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) return null;
+
+        try {
+          await loginLimiter.consume(credentials.username);
+        } catch {
+          throw new Error("Terlalu banyak percobaan login. Coba lagi nanti.");
+        }
 
         const user = await prisma.user.findUnique({
           where: { username: credentials.username },

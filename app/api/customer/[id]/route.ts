@@ -1,21 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { customerSchema } from "@/lib/validations";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { nama, no_hp, alamat } = await req.json();
+  const body = await req.json();
 
-  if (!nama || !no_hp || !alamat)
-    return NextResponse.json({ error: "Semua field wajib diisi" }, { status: 400 });
+const parsed = customerSchema.safeParse(body);
 
-  const data = await prisma.customer.update({
-    where: { id: Number(id) },
-    data: { nama, no_hp, alamat },
-  });
-  return NextResponse.json(data);
+if (!parsed.success) {
+  return NextResponse.json(
+    { error: parsed.error.issues[0]?.message || "Input tidak valid" },
+    { status: 400 }
+  );
+}
+
+const { nama, no_hp, alamat } = parsed.data;
 }
 
 export async function DELETE(

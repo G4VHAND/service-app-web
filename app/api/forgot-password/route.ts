@@ -2,23 +2,38 @@ import { prisma } from "@/lib/prisma";
 import { sendResetPasswordEmail } from "@/lib/mail";
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { forgotPasswordLimiter } from "@/lib/rate-limit";
+import { forgotPasswordSchema } from "@/lib/validations";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const body = await req.json();
 
-    if (!email) {
+    const parsed = forgotPasswordSchema.safeParse(body);
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { message: "Email wajib diisi" },
+        { message: parsed.error.issues[0]?.message || "Email tidak valid" },
         { status: 400 }
       );
     }
 
+    const { email } = parsed.data;
+
+    try {
+      await forgotPasswordLimiter.consume(email);
+    } catch {
+      return NextResponse.json(
+        { message: "Terlalu banyak permintaan. Coba lagi nanti." },
+        { status: 429 }
+      );
+    }
+
     const user = await prisma.user.findFirst({
-  where: {
-    email,
-  },
-});
+      where: {
+        email,
+      },
+    });
 
     if (!user) {
       return NextResponse.json(
@@ -32,7 +47,9 @@ export async function POST(req: Request) {
     const resetTokenExpires = new Date(Date.now() + 15 * 60 * 1000);
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: {
+        id: user.id,
+      },
       data: {
         resetToken,
         resetTokenExpires,

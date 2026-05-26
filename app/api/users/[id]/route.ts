@@ -1,34 +1,44 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-
-async function cekAdmin() {
-  const session = await getServerSession(authOptions);
-  return (session?.user as any)?.role === "admin";
-}
+import { getCurrentUser, requireAdmin } from "@/lib/auth";
+import { createAuditLog } from "@/lib/audit";
 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const isAdmin = await requireAdmin();
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { message: "Akses ditolak" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
 
-    const isAdmin = await cekAdmin();
+    const currentUser = await getCurrentUser();
 
-if (!isAdmin) {
-  return NextResponse.json(
-    { message: "Akses ditolak" },
-    { status: 403 }
-  );
-}
+    if (currentUser?.id === Number(id)) {
+      return NextResponse.json(
+        { message: "Anda tidak bisa menghapus akun sendiri" },
+        { status: 400 }
+      );
+    }
 
     await prisma.user.delete({
       where: {
         id: Number(id),
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser?.id,
+      action: "DELETE_USER",
+      detail: `Menghapus user ID ${id}`,
     });
 
     return NextResponse.json({
@@ -47,24 +57,39 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const isAdmin = await requireAdmin();
+
+    if (!isAdmin) {
+      return NextResponse.json(
+        { message: "Akses ditolak" },
+        { status: 403 }
+      );
+    }
+
     const { id } = await params;
     const { password, role, email } = await req.json();
 
     const data: any = {};
-    const isAdmin = await cekAdmin();
-
-if (!isAdmin) {
-  return NextResponse.json(
-    { message: "Akses ditolak" },
-    { status: 403 }
-  );
-}
 
     if (password) {
+      if (password.length < 6) {
+        return NextResponse.json(
+          { message: "Password minimal 6 karakter" },
+          { status: 400 }
+        );
+      }
+
       data.password = await bcrypt.hash(password, 10);
     }
 
     if (role) {
+      if (!["admin", "kasir"].includes(role)) {
+        return NextResponse.json(
+          { message: "Role tidak valid" },
+          { status: 400 }
+        );
+      }
+
       data.role = role;
     }
 
@@ -77,6 +102,14 @@ if (!isAdmin) {
         id: Number(id),
       },
       data,
+    });
+
+    const currentUser = await getCurrentUser();
+
+    await createAuditLog({
+      userId: currentUser?.id,
+      action: "UPDATE_USER",
+      detail: `Mengupdate user ID ${id}`,
     });
 
     return NextResponse.json({

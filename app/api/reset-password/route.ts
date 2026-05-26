@@ -1,24 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import { resetPasswordSchema } from "@/lib/validations";
 
 export async function POST(req: Request) {
   try {
-    const { token, password } = await req.json();
+    const body = await req.json();
 
-    if (!token || !password) {
+    const parsed = resetPasswordSchema.safeParse(body);
+
+    if (!parsed.success) {
       return NextResponse.json(
-        { message: "Token dan password wajib diisi" },
+        {
+          message:
+            parsed.error.issues[0]?.message || "Input tidak valid",
+        },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { message: "Password minimal 6 karakter" },
-        { status: 400 }
-      );
-    }
+    const { token, password } = parsed.data;
 
     const user = await prisma.user.findFirst({
       where: {

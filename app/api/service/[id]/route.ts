@@ -1,18 +1,30 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { serviceSchema } from "@/lib/validations";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { customer_id, tanggal_masuk, jenis_barang, keluhan, status } = await req.json();
+  const body = await req.json();
 
-  const data = await prisma.service.update({
-    where: { id: Number(id) },
-    data: { customer_id: Number(customer_id), tanggal_masuk, jenis_barang, keluhan, status },
-  });
-  return NextResponse.json(data);
+const parsed = serviceSchema.safeParse(body);
+
+if (!parsed.success) {
+  return NextResponse.json(
+    { error: parsed.error.issues[0]?.message || "Input tidak valid" },
+    { status: 400 }
+  );
+}
+
+const {
+  customer_id,
+  tanggal_masuk,
+  jenis_barang,
+  keluhan,
+  status,
+} = parsed.data;
 }
 
 export async function DELETE(

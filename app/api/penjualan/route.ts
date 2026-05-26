@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { penjualanSchema } from "@/lib/validations";
+import { createAuditLog } from "@/lib/audit";
 
 export async function GET() {
   const data = await prisma.transaksiPenjualan.findMany({
@@ -12,11 +14,20 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { items } = await req.json();
-  // items: [{ barang_id, jumlah, subtotal }]
+  const body = await req.json();
 
-  if (!items || items.length === 0)
-    return NextResponse.json({ error: "Keranjang kosong" }, { status: 400 });
+  const parsed = penjualanSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error: parsed.error.issues[0]?.message || "Input tidak valid",
+      },
+      { status: 400 }
+    );
+  }
+
+  const { items } = parsed.data;
 
   // Validasi stok cukup
   for (const item of items) {
@@ -62,6 +73,12 @@ export async function POST(req: Request) {
     }
 
     return penjualan;
+  });
+
+  await createAuditLog({
+    userId: userId || null,
+    action: "CREATE_PENJUALAN",
+    detail: `Membuat transaksi penjualan ID ${trx.id}`,
   });
 
   return NextResponse.json(trx);

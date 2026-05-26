@@ -1,7 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth";
 
 export async function GET(req: Request) {
+  const isAdmin = await requireAdmin();
+
+  if (!isAdmin) {
+    return NextResponse.json(
+      { message: "Akses ditolak" },
+      { status: 403 }
+    );
+  }
   const { searchParams } = new URL(req.url);
   const bulan = searchParams.get("bulan") || new Date().toISOString().slice(0, 7);
 

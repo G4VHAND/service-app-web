@@ -1,18 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { barangSchema } from "@/lib/validations";
 
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { nama_barang, stok, harga } = await req.json();
+  const body = await req.json();
 
-  const data = await prisma.barang.update({
-    where: { id: Number(id) },
-    data: { nama_barang, stok: Number(stok), harga: Number(harga) },
-  });
-  return NextResponse.json(data);
+const parsed = barangSchema.safeParse(body);
+
+if (!parsed.success) {
+  return NextResponse.json(
+    { error: parsed.error.issues[0]?.message || "Input tidak valid" },
+    { status: 400 }
+  );
+}
+
+const { nama_barang, stok, harga } = parsed.data;
 }
 
 export async function DELETE(

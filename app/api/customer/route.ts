@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { customerSchema } from "@/lib/validations";
 
 export async function GET() {
   const data = await prisma.customer.findMany({ orderBy: { id: "desc" } });
@@ -7,10 +8,16 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { nama, no_hp, alamat } = await req.json();
-  if (!nama || !no_hp || !alamat)
-    return NextResponse.json({ error: "Semua field wajib diisi" }, { status: 400 });
+  const body = await req.json();
 
-  const data = await prisma.customer.create({ data: { nama, no_hp, alamat } });
-  return NextResponse.json(data);
+const parsed = customerSchema.safeParse(body);
+
+if (!parsed.success) {
+  return NextResponse.json(
+    { error: parsed.error.issues[0]?.message || "Input tidak valid" },
+    { status: 400 }
+  );
+}
+
+const { nama, no_hp, alamat } = parsed.data;
 }

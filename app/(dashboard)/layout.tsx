@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 type Role = "admin" | "kasir";
 
@@ -70,6 +71,13 @@ const menus: MenuItem[] = [
     href: "/users",
     icon: UserCog,
     label: "Manajemen User",
+    roles: ["admin"],
+  },
+
+  {
+    href: "/audit-log",
+    icon: ShieldCheck,
+    label: "Aktivitas Sistem",
     roles: ["admin"],
   },
 

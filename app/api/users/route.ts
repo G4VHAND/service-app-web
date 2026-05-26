@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { userCreateSchema } from "@/lib/validations";
 
 async function cekAdmin() {
   const session = await getServerSession(authOptions);
@@ -11,12 +12,14 @@ async function cekAdmin() {
 
 export async function GET() {
   const isAdmin = await cekAdmin();
+
   if (!isAdmin) {
     return NextResponse.json(
-        { message: "Akses ditolak" },
-        { status: 403 }
+      { message: "Akses ditolak" },
+      { status: 403 }
     );
- }
+  }
+
   const users = await prisma.user.findMany({
     orderBy: {
       id: "desc",
@@ -32,18 +35,31 @@ export async function GET() {
   return NextResponse.json(users);
 }
 
-
-
 export async function POST(req: Request) {
   try {
-    const { username, email, password, role } = await req.json();
+    const isAdmin = await cekAdmin();
 
-    if (!username || !password) {
+    if (!isAdmin) {
       return NextResponse.json(
-        { message: "Username dan password wajib diisi" },
+        { message: "Akses ditolak" },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+
+    const parsed = userCreateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          message: parsed.error.issues[0]?.message || "Input tidak valid",
+        },
         { status: 400 }
       );
     }
+
+    const { username, email, password, role } = parsed.data;
 
     const existing = await prisma.user.findFirst({
       where: {
@@ -68,7 +84,7 @@ export async function POST(req: Request) {
         username,
         email: email || null,
         password: hashedPassword,
-        role: role || "kasir",
+        role,
       },
       select: {
         id: true,
