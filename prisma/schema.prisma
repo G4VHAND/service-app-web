@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int       @id @default(autoincrement())
+  username           String    @unique
+  email              String?   @unique
+  password           String
+  role               String    @default("kasir")
+
+  resetToken         String?
+  resetTokenExpires  DateTime?
+
+  transaksis          Transaksi[]
+  transaksiPenjualans TransaksiPenjualan[]
+
+  @@map("user")
+}
+
+model Customer {
+  id     Int    @id @default(autoincrement())
+  nama   String
+  no_hp  String
+  alamat String
+
+  services      Service[]
+  barangKeluars BarangKeluar[]
+
+  @@map("customer")
+}
+
+model Service {
+  id            Int    @id @default(autoincrement())
+  customer_id   Int
+  tanggal_masuk String
+  jenis_barang  String
+  keluhan       String
+  status        String @default("Menunggu")
+
+  customer     Customer      @relation(fields: [customer_id], references: [id])
+  transaksis   Transaksi[]
+  barangKeluar BarangKeluar?
+
+  @@map("service")
+}
+
+model Barang {
+  id          Int    @id @default(autoincrement())
+  nama_barang String
+  stok        Int    @default(0)
+  harga       Int    @default(0)
+
+  detailPenjualans DetailPenjualan[]
+
+  @@map("barang")
+}
+
+model Transaksi {
+  id            Int    @id @default(autoincrement())
+  service_id    Int
+  biaya_service Int    @default(0)
+  total         Int    @default(0)
+  tanggal       String
+
+  userId Int?
+
+  user   User? @relation(fields: [userId], references: [id])
+
+  service Service @relation(fields: [service_id], references: [id])
+
+  @@map("transaksi")
+}
+
+model TransaksiPenjualan {
+  id      Int    @id @default(autoincrement())
+  total   Int    @default(0)
+  tanggal String
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  detailPenjualans DetailPenjualan[]
+
+  @@map("transaksi_penjualan")
+}
+
+model DetailPenjualan {
+  id                     Int @id @default(autoincrement())
+  transaksi_penjualan_id Int
+  barang_id              Int
+  jumlah                 Int
+  subtotal               Int
+
+  transaksiPenjualan TransaksiPenjualan @relation(fields: [transaksi_penjualan_id], references: [id])
+  barang             Barang             @relation(fields: [barang_id], references: [id])
+
+  @@map("detail_penjualan")
+}
+
+model BarangKeluar {
+  id             Int    @id @default(autoincrement())
+  service_id     Int    @unique
+  customer_id    Int
+  tanggal_keluar String
+
+  service  Service  @relation(fields: [service_id], references: [id])
+  customer Customer @relation(fields: [customer_id], references: [id])
+
+  @@map("barang_keluar")
+}
